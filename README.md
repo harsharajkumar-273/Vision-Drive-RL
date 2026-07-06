@@ -57,7 +57,9 @@ graph TD
     PPOActor -->|"Action: [Steer, Accel]"| Physics
     Physics --> Env
     Traffic --> Env
-    Env -->|Renders next frame| Multi-View Perspective Cameras
+    Env -->|Renders next frame| CamL
+    Env -->|Renders next frame| CamC
+    Env -->|Renders next frame| CamR
     Env -->|Updates| Telemetry
 ```
 
