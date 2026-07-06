@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+
+# Experiment artifacts
+experiments/checkpoints*/
+experiments/runs/
+wandb/
+
+# Large/generated archives
+*.zip
+
+# Secrets
+.env

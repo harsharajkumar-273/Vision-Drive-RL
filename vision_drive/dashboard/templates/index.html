@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VisionDrive-RL: AV Perception & Control Dashboard</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Socket.IO Client -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        :root {
+            --bg-darker: #0d0f14;
+            --bg-dark: #141722;
+            --bg-card: rgba(30, 34, 49, 0.6);
+            --primary: #8b5cf6;
+            --primary-glow: rgba(139, 92, 246, 0.4);
+            --accent-cyan: #06b6d4;
+            --accent-red: #ef4444;
+            --accent-green: #10b981;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --border: rgba(255, 255, 255, 0.08);
+            --font-outfit: 'Outfit', sans-serif;
+            --font-space: 'Space Grotesk', sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-darker);
+            color: var(--text-main);
+            font-family: var(--font-outfit);
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top Header Navigation */
+        header {
+            background-color: rgba(20, 23, 34, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            padding: 1.2rem 2.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+
+        .logo-icon {
+            font-size: 1.8rem;
+            background: linear-gradient(135deg, var(--primary), var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: pulse-glow 3s infinite alternate;
+        }
+
+        .logo-text h1 {
+            font-family: var(--font-space);
+            font-weight: 700;
+            font-size: 1.4rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            background: linear-gradient(to right, #ffffff, #9ca3af);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo-text span {
+            font-size: 0.75rem;
+            color: var(--accent-cyan);
+            letter-spacing: 2px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .system-status {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--accent-red);
+        }
+
+        .status-dot.active {
+            background-color: var(--accent-green);
+            box-shadow: 0 0 8px var(--accent-green);
+            animation: blink 1.5s infinite;
+        }
+
+        /* Dashboard Main Layout */
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            flex-grow: 1;
+            padding: 1.5rem;
+            gap: 1.5rem;
+        }
+
+        /* Sidebar Styling */
+        aside {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .card-title {
+            font-family: var(--font-space);
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.6rem;
+            color: #ffffff;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+
+        .btn {
+            font-family: var(--font-outfit);
+            font-weight: 600;
+            font-size: 0.95rem;
+            padding: 0.8rem 1.2rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            color: white;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), #7c3aed);
+            box-shadow: 0 4px 15px var(--primary-glow);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.6);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--accent-red), #dc2626);
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+        }
+
+        .mode-toggle {
+            display: flex;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 0.3rem;
+            border: 1px solid var(--border);
+        }
+
+        .mode-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 0.6rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: var(--font-outfit);
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
+        }
+
+        .mode-btn.active {
+            background: rgba(255, 255, 255, 0.08);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: inset 0 1px 1px rgba(255,255,255,0.1);
+        }
+
+        .telemetry-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.8rem;
+            font-size: 0.95rem;
+        }
+
+        .telemetry-label {
+            color: var(--text-muted);
+        }
+
+        .telemetry-val {
+            font-family: var(--font-space);
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        /* Central Work Area */
+        main {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            gap: 1.5rem;
+        }
+
+        /* Perspective Cameras Section */
+        .camera-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.2rem;
+        }
+
+        .camera-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+
+        .camera-header {
+            padding: 0.6rem 1rem;
+            font-family: var(--font-space);
+            font-weight: 700;
+            font-size: 0.85rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-muted);
+        }
+
+        .camera-stream {
+            width: 100%;
+            aspect-ratio: 1;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .camera-stream img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* BEV and Controller Section */
+        .perception-control-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .bev-view {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .bev-container {
+            width: 256px;
+            height: 256px;
+            background: #080a0f;
+            border-radius: 12px;
+            border: 2px solid rgba(255,255,255,0.05);
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .bev-container img {
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated;
+        }
+
+        .placeholder-text {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        /* Control Gauges & Visualizer */
+        .controls-visualizer {
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+        }
+
+        .visualizer-hud {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 1.5rem;
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .hud-dial {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .steering-wheel-container {
+            width: 100px;
+            height: 100px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .steering-wheel {
+            width: 80px;
+            height: 80px;
+            border: 6px solid #4b5563;
+            border-radius: 50%;
+            position: relative;
+            transition: transform 0.1s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
+
+        .steering-wheel::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background-color: #4b5563;
+            transform: translateY(-50%);
+        }
+
+        .steering-wheel::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 6px;
+            bottom: 0;
+            background-color: #4b5563;
+            transform: translateX(-50%);
+        }
+
+        .wheel-marker {
+            position: absolute;
+            top: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 10px;
+            height: 10px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+        }
+
+        .gauge-bar-container {
+            width: 100%;
+            height: 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .gauge-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--primary));
+            transition: width 0.1s ease;
+        }
+
+        /* Keyboard Instructions */
+        .kbd-guide {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            line-height: 1.4rem;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            border: 1px dashed var(--border);
+        }
+
+        .kbd-row {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin-bottom: 0.3rem;
+        }
+
+        kbd {
+            background: #374151;
+            border: 1px solid #4b5563;
+            border-radius: 4px;
+            color: #ffffff;
+            font-size: 0.75rem;
+            padding: 0.1rem 0.4rem;
+            font-family: monospace;
+            box-shadow: 0 2px 0 rgba(0,0,0,0.5);
+        }
+
+        /* Animations */
+        @keyframes pulse-glow {
+            from {
+                text-shadow: 0 0 5px rgba(139, 92, 246, 0.2);
+            }
+            to {
+                text-shadow: 0 0 15px rgba(139, 92, 246, 0.8);
+            }
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard-container {
+                grid-template-columns: 1fr;
+            }
+            .perception-control-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Navigation -->
+    <header>
+        <div class="logo-container">
+            <i class="fa-solid fa-car-tunnel logo-icon"></i>
+            <div class="logo-text">
+                <h1>VisionDrive-RL</h1>
+                <span>AV Perception & Control Dashboard</span>
+            </div>
+        </div>
+        <div class="system-status">
+            <div id="recording-badge" class="status-badge" style="display: none; border-color: var(--accent-red); background: rgba(239, 68, 68, 0.1);">
+                <div class="status-dot active" style="background-color: var(--accent-red); box-shadow: 0 0 8px var(--accent-red);"></div>
+                <span style="color: var(--accent-red); font-weight: 600;">RECORDING DEMO</span>
+            </div>
+            <div class="status-badge">
+                <span>Driver:</span>
+                <span id="control-driver-indicator" style="font-weight: 600; color: var(--primary);">AI (PPO Model)</span>
+            </div>
+            <div class="status-badge">
+                <div id="sim-status-dot" class="status-dot"></div>
+                <span id="sim-status-text">Simulator Offline</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <div class="dashboard-container">
+        
+        <!-- Left Control Sidebar -->
+        <aside>
+            <div class="card">
+                <div class="card-title">
+                    <i class="fa-solid fa-sliders"></i> Simulation
+                </div>
+                <div class="control-group">
+                    <button id="btn-start" class="btn btn-primary">
+                        <i class="fa-solid fa-play"></i> Start Simulation
+                    </button>
+                    <button id="btn-stop" class="btn btn-danger" style="display:none;">
+                        <i class="fa-solid fa-pause"></i> Stop Simulation
+                    </button>
+                    
+                    <button id="btn-record" class="btn" style="background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3); display: none;">
+                        <i class="fa-solid fa-circle"></i> Start Recording
+                    </button>
+                    <button id="btn-record-stop" class="btn" style="background: linear-gradient(135deg, #f59e0b, #d97706); box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3); display: none;">
+                        <i class="fa-solid fa-stop"></i> Stop Recording
+                    </button>
+
+                    <div style="margin-top: 0.8rem;">
+                        <label style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.4rem; display: block;">DRIVER MODE</label>
+                        <div class="mode-toggle">
+                            <button id="mode-ai" class="mode-btn active">AI Control</button>
+                            <button id="mode-manual" class="mode-btn">Manual Override</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">
+                    <i class="fa-solid fa-chart-line"></i> Telemetry HUD
+                </div>
+                <div class="telemetry-item">
+                    <span class="telemetry-label">Speed</span>
+                    <span id="val-speed" class="telemetry-val">0.0 m/s</span>
+                </div>
+                <div class="telemetry-item">
+                    <span class="telemetry-label">Steering</span>
+                    <span id="val-steer" class="telemetry-val">0.0°</span>
+                </div>
+                <div class="telemetry-item">
+                    <span class="telemetry-label">Lane Deviation</span>
+                    <span id="val-offset" class="telemetry-val">0.00 m</span>
+                </div>
+                <div class="telemetry-item">
+                    <span class="telemetry-label">Step Reward</span>
+                    <span id="val-reward" class="telemetry-val">0.00</span>
+                </div>
+            </div>
+            
+            <div id="keyboard-guide" class="card" style="display: none;">
+                <div class="card-title">
+                    <i class="fa-solid fa-keyboard"></i> Driving Help
+                </div>
+                <div class="kbd-guide">
+                    <div class="kbd-row"><kbd>W</kbd> / <kbd>↑</kbd> <span>Accelerate</span></div>
+                    <div class="kbd-row"><kbd>S</kbd> / <kbd>↓</kbd> <span>Brake / Decel</span></div>
+                    <div class="kbd-row"><kbd>A</kbd> / <kbd>←</kbd> <span>Steer Left</span></div>
+                    <div class="kbd-row"><kbd>D</kbd> / <kbd>→</kbd> <span>Steer Right</span></div>
+                    <p style="margin-top: 0.6rem; font-size: 0.75rem; color: var(--accent-cyan);">
+                        Ensure dashboard tab is in focus. Released keys return actions to neutral.
+                    </p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Central Work Area -->
+        <main>
+            
+            <!-- Three Perspective Cameras -->
+            <div class="camera-grid">
+                <!-- Left Camera -->
+                <div class="camera-card">
+                    <div class="camera-header">
+                        <span>LEFT PERSPECTIVE CAMERA</span>
+                        <span>-30° YAW</span>
+                    </div>
+                    <div class="camera-stream">
+                        <img id="img-cam-left" src="" style="display:none;">
+                        <span class="placeholder-text" id="lbl-placeholder-l"><i class="fa-solid fa-video-slash"></i></span>
+                    </div>
+                </div>
+
+                <!-- Center Camera -->
+                <div class="camera-card">
+                    <div class="camera-header">
+                        <span>CENTER PERSPECTIVE CAMERA</span>
+                        <span>0° YAW</span>
+                    </div>
+                    <div class="camera-stream">
+                        <img id="img-cam-center" src="" style="display:none;">
+                        <span class="placeholder-text" id="lbl-placeholder-c"><i class="fa-solid fa-video-slash"></i></span>
+                    </div>
+                </div>
+
+                <!-- Right Camera -->
+                <div class="camera-card">
+                    <div class="camera-header">
+                        <span>RIGHT PERSPECTIVE CAMERA</span>
+                        <span>+30° YAW</span>
+                    </div>
+                    <div class="camera-stream">
+                        <img id="img-cam-right" src="" style="display:none;">
+                        <span class="placeholder-text" id="lbl-placeholder-r"><i class="fa-solid fa-video-slash"></i></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fused Occupancy Grid and Policy Controls -->
+            <div class="perception-control-grid">
+                
+                <!-- BEV Occupancy Map -->
+                <div class="card bev-view">
+                    <div class="card-title" style="width: 100%;">
+                        <i class="fa-solid fa-map-location-dot"></i> BEV Occupancy Grid Map
+                    </div>
+                    <div class="bev-container">
+                        <img id="img-bev" src="" style="display:none;">
+                        <span class="placeholder-text" id="lbl-placeholder-bev">
+                            <i class="fa-solid fa-network-wired" style="font-size: 2rem; margin-bottom: 0.8rem; display: block; color: var(--primary);"></i>
+                            Start simulation to run BEV projection
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Control Actuators / Steering Visualizer -->
+                <div class="card controls-visualizer">
+                    <div class="card-title">
+                        <i class="fa-solid fa-gauge-high"></i> Policy Actuators
+                    </div>
+                    
+                    <div class="visualizer-hud">
+                        <div class="hud-dial">
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">STEERING</span>
+                            <div class="steering-wheel-container">
+                                <div id="wheel" class="steering-wheel">
+                                    <div class="wheel-marker"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="width: 50%;">
+                            <div style="margin-bottom: 0.8rem;">
+                                <div class="telemetry-item" style="margin-bottom: 0.2rem;">
+                                    <span style="font-size: 0.8rem; color: var(--text-muted);">THROTTLE</span>
+                                    <span id="lbl-throttle" style="font-size: 0.8rem; font-weight: bold; color: var(--accent-green);">0%</span>
+                                </div>
+                                <div class="gauge-bar-container">
+                                    <div id="bar-throttle" class="gauge-bar" style="background: var(--accent-green);"></div>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <div class="telemetry-item" style="margin-bottom: 0.2rem;">
+                                    <span style="font-size: 0.8rem; color: var(--text-muted);">BRAKE</span>
+                                    <span id="lbl-brake" style="font-size: 0.8rem; font-weight: bold; color: var(--accent-red);">0%</span>
+                                </div>
+                                <div class="gauge-bar-container">
+                                    <div id="bar-brake" class="gauge-bar" style="background: var(--accent-red);"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.3rem;">
+                        <span style="color: #ffffff; font-weight: bold;">Legend:</span>
+                        <div style="display: flex; gap: 1rem; margin-top: 0.4rem;">
+                            <span><i class="fa-solid fa-square" style="color: #007700;"></i> Driving Lanes</span>
+                            <span><i class="fa-solid fa-square" style="color: #cc0000;"></i> Traffic Obstacles</span>
+                            <span><i class="fa-solid fa-square" style="color: #0000cc;"></i> Ego Car</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Client-side Socket Logic -->
+    <script>
+        const socket = io();
+        
+        let simRunning = false;
+        let driverMode = "ai"; // ai, manual
+        
+        // Buttons
+        const btnStart = document.getElementById("btn-start");
+        const btnStop = document.getElementById("btn-stop");
+        const modeAi = document.getElementById("mode-ai");
+        const modeManual = document.getElementById("mode-manual");
+        const btnRecord = document.getElementById("btn-record");
+        const btnRecordStop = document.getElementById("btn-record-stop");
+        
+        // Status Indicators
+        const dotStatus = document.getElementById("sim-status-dot");
+        const textStatus = document.getElementById("sim-status-text");
+        const driverIndicator = document.getElementById("control-driver-indicator");
+        const kbdGuide = document.getElementById("keyboard-guide");
+        const badgeRecording = document.getElementById("recording-badge");
+        
+        // Telemetry Values
+        const valSpeed = document.getElementById("val-speed");
+        const valSteer = document.getElementById("val-steer");
+        const valOffset = document.getElementById("val-offset");
+        const valReward = document.getElementById("val-reward");
+        
+        // Images & Placeholders
+        const imgLeft = document.getElementById("img-cam-left");
+        const imgCenter = document.getElementById("img-cam-center");
+        const imgRight = document.getElementById("img-cam-right");
+        const imgBev = document.getElementById("img-bev");
+        
+        const phL = document.getElementById("lbl-placeholder-l");
+        const phC = document.getElementById("lbl-placeholder-c");
+        const phR = document.getElementById("lbl-placeholder-r");
+        const phBev = document.getElementById("lbl-placeholder-bev");
+        
+        // Actuator Elements
+        const wheel = document.getElementById("wheel");
+        const barThrottle = document.getElementById("bar-throttle");
+        const barBrake = document.getElementById("bar-brake");
+        const lblThrottle = document.getElementById("lbl-throttle");
+        const lblBrake = document.getElementById("lbl-brake");
+
+        // Keyboard State
+        const keysPressed = {
+            w: false, s: false, a: false, d: false,
+            ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false
+        };
+
+        // Socket Event Listeners
+        socket.on('status', (msg) => {
+            console.log('Socket status:', msg);
+        });
+
+        socket.on('sim_update', (data) => {
+            if (!simRunning) return;
+            
+            // Show Images
+            imgLeft.src = data.cameras.left;
+            imgCenter.src = data.cameras.center;
+            imgRight.src = data.cameras.right;
+            imgBev.src = data.bev;
+            
+            togglePlaceholders(false);
+
+            // Update Telemetry
+            valSpeed.innerText = data.speed.toFixed(1) + " m/s";
+            // Convert steer angle to degrees
+            const steerDeg = data.steering * (180.0 / Math.PI);
+            valSteer.innerText = steerDeg.toFixed(1) + "°";
+            valOffset.innerText = data.lane_offset.toFixed(2) + " m";
+            valReward.innerText = data.reward.toFixed(2);
+
+            // Update Steering Wheel
+            // Rotate the visual steering wheel based on steering angle
+            wheel.style.transform = `rotate(${data.steering * 180.0}deg)`;
+
+            // Update Throttle & Brake Dials
+            const throttleAction = data.action[1]; // second action item
+            if (throttleAction >= 0) {
+                const percent = Math.round(throttleAction * 100);
+                barThrottle.style.width = percent + "%";
+                lblThrottle.innerText = percent + "%";
+                barBrake.style.width = "0%";
+                lblBrake.innerText = "0%";
+            } else {
+                const percent = Math.round(Math.abs(throttleAction) * 100);
+                barBrake.style.width = percent + "%";
+                lblBrake.innerText = percent + "%";
+                barThrottle.style.width = "0%";
+                lblThrottle.innerText = "0%";
+            }
+        });
+
+        socket.on('episode_ended', (data) => {
+            console.log("Episode ended:", data.reason);
+            // Flash HUD status
+            valReward.style.color = "var(--accent-red)";
+            setTimeout(() => { valReward.style.color = "#ffffff"; }, 1000);
+        });
+
+        // Socket Recording Status Listener
+        socket.on('recording_status', (data) => {
+            if (data.status === 'recording') {
+                badgeRecording.style.display = "flex";
+                btnRecord.style.display = "none";
+                btnRecordStop.style.display = "flex";
+            } else {
+                badgeRecording.style.display = "none";
+                btnRecordStop.style.display = "none";
+                if (simRunning) {
+                    btnRecord.style.display = "flex";
+                }
+                if (data.filepath) {
+                    alert("Demo trajectory saved to: " + data.filepath);
+                }
+            }
+        });
+
+        // Click Event Listeners
+        btnStart.addEventListener('click', () => {
+            simRunning = true;
+            btnStart.style.display = "none";
+            btnStop.style.display = "flex";
+            btnRecord.style.display = "flex";
+            dotStatus.classList.add("active");
+            textStatus.innerText = "Simulator Online";
+            socket.emit('start_simulation');
+        });
+
+        btnStop.addEventListener('click', () => {
+            simRunning = false;
+            btnStop.style.display = "none";
+            btnStart.style.display = "flex";
+            btnRecord.style.display = "none";
+            btnRecordStop.style.display = "none";
+            badgeRecording.style.display = "none";
+            dotStatus.classList.remove("active");
+            textStatus.innerText = "Simulator Offline";
+            socket.emit('stop_simulation');
+            socket.emit('stop_recording');
+            togglePlaceholders(true);
+        });
+
+        btnRecord.addEventListener('click', () => {
+            socket.emit('start_recording');
+        });
+
+        btnRecordStop.addEventListener('click', () => {
+            socket.emit('stop_recording');
+        });
+
+        modeAi.addEventListener('click', () => {
+            driverMode = "ai";
+            modeAi.classList.add("active");
+            modeManual.classList.remove("active");
+            driverIndicator.innerText = "AI (PPO Model)";
+            driverIndicator.style.color = "var(--primary)";
+            kbdGuide.style.display = "none";
+            socket.emit('set_mode', {mode: "ai"});
+        });
+
+        modeManual.addEventListener('click', () => {
+            driverMode = "manual";
+            modeManual.classList.add("active");
+            modeAi.classList.remove("active");
+            driverIndicator.innerText = "Manual Driver";
+            driverIndicator.style.color = "var(--accent-cyan)";
+            kbdGuide.style.display = "block";
+            socket.emit('set_mode', {mode: "manual"});
+        });
+
+        function togglePlaceholders(show) {
+            imgLeft.style.display = show ? "none" : "block";
+            imgCenter.style.display = show ? "none" : "block";
+            imgRight.style.display = show ? "none" : "block";
+            imgBev.style.display = show ? "none" : "block";
+            
+            phL.style.display = show ? "block" : "none";
+            phC.style.display = show ? "block" : "none";
+            phR.style.display = show ? "block" : "none";
+            phBev.style.display = show ? "block" : "none";
+        }
+
+        // Keyboard Override Controls
+        document.addEventListener('keydown', (e) => {
+            if (driverMode !== "manual" || !simRunning) return;
+            if (e.key in keysPressed) {
+                keysPressed[e.key] = true;
+                e.preventDefault();
+                sendKeyAction();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (driverMode !== "manual" || !simRunning) return;
+            if (e.key in keysPressed) {
+                keysPressed[e.key] = false;
+                e.preventDefault();
+                sendKeyAction();
+            }
+        });
+
+        function sendKeyAction() {
+            let throttle = 0.0;
+            let steer = 0.0;
+            
+            // Forward / Backwards
+            if (keysPressed.w || keysPressed.ArrowUp) {
+                throttle = 0.8;
+            } else if (keysPressed.s || keysPressed.ArrowDown) {
+                throttle = -0.8; // Brake
+            }
+            
+            // Steering
+            if (keysPressed.a || keysPressed.ArrowLeft) {
+                steer = -0.6; // Left
+            } else if (keysPressed.d || keysPressed.ArrowRight) {
+                steer = 0.6; // Right
+            }
+            
+            socket.emit('key_action', {steer: steer, throttle: throttle});
+        }
+    </script>
+</body>
+</html>
