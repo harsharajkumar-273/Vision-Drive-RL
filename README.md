@@ -54,10 +54,11 @@ graph TD
     OccupancyGrid --> PPOCritic
     Telemetry --> PPOCritic
     
-    PPOActor -->|Action: [Steer, Accel]| Physics
-    Physics -->|Updates| Traffic
-    Traffic -->|Generates Next State| Multi-View Perspective Cameras
-    Physics -->|Updates Telemetry| Telemetry
+    PPOActor -->|"Action: [Steer, Accel]"| Physics
+    Physics --> Env
+    Traffic --> Env
+    Env -->|Renders next frame| Multi-View Perspective Cameras
+    Env -->|Updates| Telemetry
 ```
 
 ---
